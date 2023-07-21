@@ -57,7 +57,7 @@ def safe_click(web_element, text):
 
 
 basicConfig(level=DEBUG)
-driver = webdriver.Edge("C:\\Users\\yutta\\Downloads\\edgedriver_win64\\msedgedriver.exe")
+driver = webdriver.Edge()
 try:
     while True:
         driver.get('http://calctest.nchu.edu.tw/')
