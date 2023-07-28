@@ -153,19 +153,15 @@ try:
                     return
 
     safe_click(driver, "登入")
-    try:
-        while course := simpledialog.askstring(
-            "course name", "Please enter a course📚:"
-        ):
-            on_stale_element_reference_exception(
-                lambda: next(
-                    div
-                    for div in driver.find_elements(By.TAG_NAME, "div")
-                    if course == div.text
-                ).click()
-            )()
-    except:
-        pass
+
+    course = simpledialog.askstring("course name", "Please enter a course📚:")
+    on_stale_element_reference_exception(
+        lambda: next(
+            div
+            for div in driver.find_elements(By.TAG_NAME, "div")
+            if course == div.text
+        ).click()
+    )()
     while exam_name_ := simpledialog.askstring(
         "exam name", "Please enter the exam name we need to grade..."
     ):
