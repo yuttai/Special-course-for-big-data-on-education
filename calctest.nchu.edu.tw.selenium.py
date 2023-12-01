@@ -6,6 +6,7 @@ from backoff import expo
 from logging import DEBUG, basicConfig, debug
 from tkinter import simpledialog
 import main
+from time import sleep
 
 basicConfig(level=DEBUG)
 driver = webdriver.Edge()
@@ -47,6 +48,7 @@ try:
             next(main.find_buttons_by_text(exam_tr, "檢視答卷")).click()
             while grade_one_student():
                 pass
+            sleep(1)
             for navigation in driver.find_elements(
                 By.CLASS_NAME, "semi-navigation-item-text"
             ):
@@ -68,5 +70,11 @@ try:
         "exam name", "Please enter the exam name we need to grade..."
     ):
         grade_one_exam(exam_name_)
-finally:
     driver.quit()
+finally:
+    # 在這裡加上driver.quit()的原因是因為如果沒加的話，當程式出錯時網頁還會存在，但是想要再次執行時，如果沒有把網頁關掉的話
+    # 會出問題，所以才在finally加上driver.quit()，這樣在程式出錯的時候，就可以先執行finally的程式碼，然後才會報錯。
+    # 如果想要debug，那就把driver.quit()移到try的最後一行，並且在finally裡加上pass讓finally運作，因為finally不能為空，
+    # 不然程式會把網頁關掉，就不能debug了。
+    # driver.quit()
+    pass
