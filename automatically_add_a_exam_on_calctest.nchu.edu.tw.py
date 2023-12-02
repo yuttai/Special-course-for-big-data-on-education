@@ -3,7 +3,6 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from backoff import expo
 from logging import DEBUG, basicConfig
-from random import randint
 from tkinter import simpledialog
 import tkinter as tk
 from tkinter import ttk
@@ -16,21 +15,13 @@ basicConfig(level=DEBUG)
 driver = webdriver.Edge()
 try:
     main.open_web(driver)
-    
-                
-    @main.on_predicate(wait_gen=expo, predicate=lambda x: not x)
-    @main.function_logger
-    def find_non_empty_elements_by_tag_name():
-        return driver.find_elements(By.TAG_NAME, "tr")
+    main.on_predicate(wait_gen=expo, predicate=lambda x: not x)
 
     @main.function_logger
     def add_one_exam():
-        """
-        自動新增考試(雖然目前還無法完全自動)
-        """
         global exam_name
-        #exam_name = simpledialog.askstring("exam name", "Please enter a exam📚:")
-        exam_name = str(randint(0, 999999))
+        exam_name = simpledialog.askstring("exam name", "Please enter a exam name you want to add📚:")
+        #exam_name = str(randint(0, 999999))
         main.safe_click(driver, "新增考試")
         sleep(2)
         driver.find_element(
@@ -38,9 +29,10 @@ try:
             "name",
         ).send_keys(exam_name)
         # 以下--------內的幾行目前是失敗的，根本沒反應，所以就人工點一點吧😂
-        # 2023/11/12更新 已經改好了可以動新增新的考試
         # -------------------------------------------------------------------------------------
-        # 2023/12/01
+        # 2023/11/12更新 已經改好了可以自動新增新的考試
+        # 2023/12/02大致上沒什麼問題，在新增考試時有一個按鈕會因為網頁開啟時，不是最大畫面導致按鈕點擊不到
+        @main.function_logger
         def delete_motion(element):
             element.send_keys(Keys.CONTROL,"a")
             element.send_keys(Keys.DELETE)
@@ -67,14 +59,10 @@ try:
         test_time.send_keys("180")
 
         driver.find_elements(By.CLASS_NAME, "semi-button.semi-button-primary")[-1].click()
-        # -------------------------------------------------------------------------------------
 
-    # 待處理 -----------------------------------------------------------------------------------
-
-    import tkinter as tk
-
+    @main.function_logger
     def create_a_window():
-
+        @main.function_logger
         def submit_action():
             # 獲取取輸入資料
             yes_q = entry_yesno.get()
@@ -133,13 +121,16 @@ try:
         # 這裡不使用 mainloop()，而是使用 wait_window() 等待視窗關閉
         root.wait_window()
 
+    @main.function_logger
     def check_and_close_main_window():
         global open_windows_count, root
         if open_windows_count == 0:
             root.destroy()
 
+    @main.function_logger
     def allocate_difficulty(q_type, num_questions_str):
         global next_window_x, next_window_y, open_windows_count
+        @main.function_logger
         def save_difficulty_allocation():
             try:
                 # 取得輸入的數值
@@ -154,7 +145,7 @@ try:
                 exam_data[q_type]["困難"] = int(hard_entry.get())
                 exam_data[q_type]["題目分數"] = int(score_entry.get())
 
-                # 检查总数是否与输入匹配
+                # 检查總數是否符合輸入值
                 if easy_count + medium_count + hard_count != int(num_questions_str):
                     print(f"錯誤：{q_type}不同難度題目數總和不等於總题目數")
                     return
@@ -205,13 +196,12 @@ try:
         save_button = tk.Button(difficulty_window, text="保存", command=save_difficulty_allocation)
         save_button.pack()
 
-    ''' def wait_for_element(driver, by, identifier, timeout=10):
-        WebDriverWait(driver, timeout).until(EC.presence_of_element_located((by, identifier)))'''
-
+    @main.function_logger
     def wait_for_element(driver, by, identifier, timeout=20):
         element = WebDriverWait(driver, timeout).until(EC.element_to_be_clickable((by, identifier)))
         return element
 
+    @main.function_logger
     def add_question_motion(q_type, difficulity, score, chapter):
         #wait_for_element(driver, By.XPATH, q_xpath[q_type]).click()
         sleep(0.5)
@@ -233,8 +223,9 @@ try:
         global button_flag
         button_flag = True
 
-
+    @main.function_logger
     def create_quention_chapter_ui():
+        @main.function_logger
         def create_chapter_selection_frame(parent):
             # 使用 Canvas 和 Scrollbar 創建滾動條
             canvas = tk.Canvas(parent)
@@ -269,11 +260,11 @@ try:
                             continue
                         label_text = f"{difficulty} {i+1}:"
                         tk.Label(scrollable_frame, text=label_text).grid(row=row, column=col, sticky="w")
-                        chapter_var = tk.StringVar() # 为每个下拉菜单创建一个 StringVar 对象
+                        chapter_var = tk.StringVar() # 幫每個下拉選單建立一個 StringVar 物件
                         chapter_combobox = ttk.Combobox(scrollable_frame, textvariable=chapter_var, values=[ch + " " + chapters_dic[ch] for ch in chapters])
                         chapter_combobox.grid(row=row, column=col+1, sticky="w")
-                        chapter_combobox.set("1 - 1"+ " " + chapters_dic[chapters[0]])  # 默认选项
-                        chapter_vars[q_type][difficulty].append(chapter_var)  # 将 StringVar 对象添加到列表中
+                        chapter_combobox.set("1 - 1"+ " " + chapters_dic[chapters[0]])  # 默認選項
+                        chapter_vars[q_type][difficulty].append(chapter_var)  # 將 StringVar 物件新增加到列表中
                         row += 1
                 col += 2
         
@@ -281,15 +272,14 @@ try:
             scrollbar_y.pack(side="right", fill="y")
             scrollbar_x.pack(side="bottom", fill="x")
 
+        @main.function_logger
         def submit_action():
-            # 收集下拉菜单的选择
+            # 收集下拉選單的選擇
             for q_type, difficulties in chapter_vars.items():
                 selected_chapters[q_type] = {}
                 for difficulty, vars in difficulties.items():
                     selected_chapters[q_type][difficulty] = [var.get() for var in vars]
 
-            # 打印或存储选中的章节
-            print("用户选择的章节：", selected_chapters)
             root.destroy()
 
         # 創建主窗口並在其中創建章節選擇的界面
@@ -302,36 +292,36 @@ try:
 
         root.mainloop()
 
+    @main.function_logger
     def add_some_questions():
         test_name = driver.find_elements(By.CLASS_NAME, "semi-typography-link-text")
+        # 找新增加的考試的物件
         for test in test_name:
-            exam_name = "165155"
             if test.text != exam_name:
                 continue
             else:
+                #判斷裡面有沒有題目，有的話結束程式，沒有就開始新增題目
                 test_name[test_name.index(test)].click()
                 sleep(0.5)
                 empty = driver.find_elements(By.CLASS_NAME, "semi-empty-description")
-            if len(empty) == 1:
-                create_a_window()
-                create_quention_chapter_ui()
-                for q_type, difficulties in selected_chapters.items():
-                    for difficulty, chapter in difficulties.items():
-                        for q_num in chapter:
-                            if button_flag == False:
-                                driver.find_element(By.CLASS_NAME, "semi-button.semi-button-primary.semi-button-light").click()
-                            else:
-                                wait_for_element(driver, By.XPATH, '//*[@id="__next"]/div/div[2]/div[1]/div[2]/div/div[2]/div/div[1]/div/button[2]/span').click()
-                                #driver.find_element(By.XPATH, '//*[@id="__next"]/div/div[2]/div[1]/div[2]/div/div[2]/div/div[1]/div/button[2]/span').click()
-                            #wait_for_element(driver, By.CLASS_NAME, "semi-dropdown-item").click()
-                            #driver.find_element(By.XPATH, "//li[contains(text(), '從題庫中隨機抽取')]").click()
-                            driver.find_element(By.CLASS_NAME, "semi-dropdown-item").click()
-                            q_num_list = str(q_num).split(" ")
-                            q_num1 = q_num_list[0] + " " + q_num_list[1] + " " + q_num_list[2]
-                            add_question_motion(q_type, difficulty, exam_data[q_type]["題目分數"], q_num1)
+                if len(empty) == 1:
+                    create_a_window()
+                    create_quention_chapter_ui()
+                    for q_type, difficulties in selected_chapters.items():
+                        for difficulty, chapter in difficulties.items():
+                            for q_num in chapter:
+                                if button_flag == False:
+                                    driver.find_element(By.CLASS_NAME, "semi-button.semi-button-primary.semi-button-light").click()
+                                else:
+                                    wait_for_element(driver, By.XPATH, '//*[@id="__next"]/div/div[2]/div[1]/div[2]/div/div[2]/div/div[1]/div/button[2]/span').click()
+                                    #driver.find_element(By.XPATH, '//*[@id="__next"]/div/div[2]/div[1]/div[2]/div/div[2]/div/div[1]/div/button[2]/span').click()
+                                driver.find_element(By.CLASS_NAME, "semi-dropdown-item").click()
+                                q_num_list = str(q_num).split(" ")
+                                q_num1 = q_num_list[0] + " " + q_num_list[1] + " " + q_num_list[2]
+                                add_question_motion(q_type, difficulty, exam_data[q_type]["題目分數"], q_num1)
+                break
+                # 這裡break的原因是因為只要找到新的考試那個選項，其他舊的考試不管，所以執行完就break
 
-                
-    # ------------------------------------------------------------------------------------------
     main.safe_click(driver, "登入")
 
     course = simpledialog.askstring("course name", "Please enter a course📚:")
@@ -345,7 +335,6 @@ try:
         ).click()
     )()
     
-    sleep(1)
     exam_data = {}
     chapter_vars = {}
     selected_chapters = {}
@@ -425,7 +414,7 @@ try:
                     "15 - 2": "Curl and Divergence散度與旋度",
                     "15 - 3": "Surface Integrals & Stokes' Theorem 、The Divergence Theorem 曲面積分與Stokes定理、散度定理",
                     "16 - 1": "二階微分方程式"}
-    #add_one_exam()
+    add_one_exam()
     add_some_questions()
     driver.quit()
 finally:
