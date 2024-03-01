@@ -1,9 +1,11 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from backoff import expo
-from logging import DEBUG, basicConfig, debug
+from logging import DEBUG, basicConfig
 from tkinter import simpledialog
 from time import sleep
+import pandas as pd
+from openpyxl.utils import get_column_letter
 import main
 
 basicConfig(level=DEBUG)
@@ -14,7 +16,7 @@ try:
     main.safe_click(driver, "登入")
 
     @main.function_logger
-    def user_ui():
+    def crab_chapters_data():
         global chapter_list
         from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
@@ -78,6 +80,7 @@ try:
     def ui():
         import tkinter as tk
         from tkinter import Toplevel, Frame, Checkbutton, StringVar
+        global chapter_vars
         def open_selection_window():
             global chapter_vars  # 使用全局變量來保存勾選框的狀態
 
@@ -118,7 +121,7 @@ try:
             bottom_buttons_frame = Frame(selection_window)
 
             # 確認按鈕
-            confirm_btn = tk.Button(bottom_buttons_frame, text="確認", command=lambda: submit_and_close(selection_window, chapter_vars))
+            confirm_btn = tk.Button(bottom_buttons_frame, text="確認", command=lambda: [submit_selections(chapter_vars), selection_window.destroy()])
             confirm_btn.pack(side=tk.LEFT)
 
             # 取消按鈕
@@ -129,9 +132,6 @@ try:
 
             show_page(0)  # 顯示第一頁
 
-        def submit_and_close(selection_window, chapter_vars):
-            submit_selections(chapter_vars)
-            selection_window.destroy()
 
         def submit_selections(chapter_vars):
             for chapter, var in chapter_vars.items():
@@ -160,9 +160,29 @@ try:
             selected_options[option_text].destroy()
             del selected_options[option_text]
 
+        def show_selected_chapters():
+            selected_chapters = [chapter for chapter, var in chapter_vars.items() if var.get() == "1"]
+            print("Selected Chapters:", selected_chapters)
+            f(selected_chapters)
+            window.destroy()
+        
+        def f(chapters):
+            # Input chapters
+            input_box = driver.find_element(By.XPATH, '//*[@id="semi-modal-body"]/div/div[1]/div/input')
+            input_box.click()
+            def click_all_chpters(chapter):
+                input_box.send_keys(chapter)
+                sleep(0.5)
+                driver.find_element(By.XPATH, '//*[@id="semi-modal-body"]/div/div[2]/div/div/div/div[1]/div/table/tbody/tr[1]/td[1]/span/span/span/span').click()
+                input_box.click()
+                input_box.clear()
+            for chapter in chapters:
+                click_all_chpters(chapter[:5])
+            driver.find_element(By.XPATH, '//*[@id="dialog-0"]/div/div[3]/div/button[2]/span').click()
+
         window = tk.Tk()
         window.title("主視窗")
-        window.geometry("300x200")
+        window.geometry("550x450")
 
         selected_options = {}
         chapter_vars = {}
@@ -170,7 +190,63 @@ try:
         chapter_btn = tk.Button(window, text="章節", command=open_selection_window)
         chapter_btn.pack()
 
+        submit_main_btn = tk.Button(window, text="提交主畫面", command=show_selected_chapters)
+        submit_main_btn.pack()
+
         window.mainloop()
+
+    def generate_excel_file_of_problems():
+        # 存儲所有頁面的資料
+        data = []
+        page_obj = driver.find_elements(By.CLASS_NAME, 'semi-page-item')
+        prob_number = page_obj[-2].text
+        for i in range(int(prob_number)):
+            # 抓取當前頁面的表格資料
+            table = driver.find_elements(By.TAG_NAME, 'table')[0]  # 調整為實際的選擇器
+            rows = table.find_elements(By.TAG_NAME, 'tr')[1:]  # 跳過表頭
+            
+            for row in rows:
+                cols = row.find_elements(By.TAG_NAME, 'td')  # 找到每一列的數據
+                data.append([col.text for col in cols])  # 將數據加到列表中
+            
+            next_button = driver.find_element(By.CLASS_NAME, 'semi-page-item.semi-page-next')  # 調整為實際的下一頁按鈕選擇器
+            next_button.click()
+            sleep(1)  # 等待頁面加載
+
+        
+        # 將資料轉換成 DataFrame
+        df = pd.DataFrame(data, columns=['題目', '類型', '章節', '難度', '建立者' , '練習次數', '答對次數', "功能"])  # 調整列名為實際情況
+
+        # 計算答對比例
+        df['練習次數'] = pd.to_numeric(df['練習次數'], errors='coerce').fillna(0)
+        df['答對次數'] = pd.to_numeric(df['答對次數'], errors='coerce').fillna(0)
+        df['答對比例'] = ((df['答對次數'] / df['練習次數']) * 100).round(2)  # 先計算百分比，再四捨五入到小數點後兩位
+
+        # 將數值轉換為百分比格式的字符串
+        df['答對比例'] = df['答對比例'].apply(lambda x: f'{x}%')
+
+        # 將答對比例列移動到答對次數後面
+        # 注意：如果你已經有 '答對比例' 列在 DataFrame 中，你可以透過列重排來達成，而不需要刪除再插入
+        cols = df.columns.tolist()
+        cols.insert(cols.index('答對次數')+1, cols.pop(cols.index('答對比例')))
+        df = df[cols]
+
+        # 匯出到 Excel，保存到桌面
+        path = r'C:\Users\User\Desktop\微積分題庫.xlsx'  # 將 YourUserName 替換成你的使用者名稱
+        df.to_excel(path, index=False)
+
+        # 然後，使用 openpyxl 加載剛剛保存的 Excel 檔案
+        from openpyxl import load_workbook
+        wb = load_workbook(path)
+        ws = wb.active
+
+        # 調整每個欄位的寬度
+        for column_cells in ws.columns:
+            length = max(len(str(cell.value)) for cell in column_cells)
+            ws.column_dimensions[get_column_letter(column_cells[0].column)].width = length
+
+        # 保存對 Excel 檔案所做的更改
+        wb.save(path)
 
     course = simpledialog.askstring("course name", "Please enter a course📚:")
     if course == "":
@@ -185,9 +261,10 @@ try:
     sleep(1)
     driver.find_elements(By.CLASS_NAME, "semi-navigation-item-text")[1].click()
     chapter_list = []
-    user_ui()
-    #print(chapter_list)
+    crab_chapters_data()
     ui()
+    sleep(1)
+    generate_excel_file_of_problems()
     driver.quit()
 finally:
     pass
