@@ -165,7 +165,9 @@ try:
             print("Selected Chapters:", selected_chapters)
             f(selected_chapters)
             window.destroy()
-        
+            sleep(1)
+            generate_excel_file_of_problems()
+
         def f(chapters):
             # Input chapters
             input_box = driver.find_element(By.XPATH, '//*[@id="semi-modal-body"]/div/div[1]/div/input')
@@ -263,8 +265,6 @@ try:
     chapter_list = []
     crab_chapters_data()
     ui()
-    sleep(1)
-    generate_excel_file_of_problems()
     driver.quit()
 finally:
     pass
