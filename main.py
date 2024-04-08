@@ -57,10 +57,20 @@ def safe_click(web_element, text):
     """
 
     before_clicked = True
+    predicate_not_yet_false = True
 
     @function_logger
     def predicate(buttons):
-        return before_clicked or buttons
+        """We now ask the program try again if it cannot find the button
+        to make sure this exception doesn't happen by accident..."""
+        nonlocal predicate_not_yet_false
+        if before_clicked or buttons:
+            return True
+        elif predicate_not_yet_false:
+            predicate_not_yet_false = False
+            return True
+        else:
+            return False
 
     @on_predicate(wait_gen=expo, predicate=predicate)
     @function_logger
