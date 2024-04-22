@@ -5,7 +5,6 @@ from logging import DEBUG, basicConfig
 from tkinter import simpledialog
 from time import sleep
 import pandas as pd
-from openpyxl.utils import get_column_letter
 import main
 
 basicConfig(level=DEBUG)
@@ -234,22 +233,26 @@ try:
         df = df[cols]
 
         # 匯出到 Excel，保存到桌面
-        path = r'C:\Users\User\Desktop\微積分題庫.xlsx'  # 將 YourUserName 替換成你的使用者名稱
-        df.to_excel(path, index=False)
+        from pathlib import Path
+        base_path = Path(r'C:\Users\User\Desktop\微積分題庫')  # 將 YourUserName 替換成你的使用者名稱
+        from openpyxl import load_workbook, utils
+        try:
+            path = base_path.with_suffix('.xlsx')
+            df.to_excel(path, index=False)
 
-        # 然後，使用 openpyxl 加載剛剛保存的 Excel 檔案
-        from openpyxl import load_workbook
-        wb = load_workbook(path)
-        ws = wb.active
+            # 然後，使用 openpyxl 加載剛剛保存的 Excel 檔案
+            wb = load_workbook(path)
+            ws = wb.active
 
-        # 調整每個欄位的寬度
-        for column_cells in ws.columns:
-            length = max(len(str(cell.value)) for cell in column_cells)
-            ws.column_dimensions[get_column_letter(column_cells[0].column)].width = length
+            # 調整每個欄位的寬度
+            for column_cells in ws.columns:
+                length = max(len(str(cell.value)) for cell in column_cells)
+                ws.column_dimensions[utils.get_column_letter(column_cells[0].column)].width = length
 
-        # 保存對 Excel 檔案所做的更改
-        wb.save(path)
-
+            # 保存對 Excel 檔案所做的更改
+            wb.save(path)
+        except utils.exceptions.IllegalCharacterError as e:
+            df.to_csv(base_path.with_suffix('.csv'), index=False)
     course = simpledialog.askstring("course name", "Please enter a course📚:")
     if course == "":
         course = "Test"
