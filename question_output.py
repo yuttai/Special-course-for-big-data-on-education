@@ -165,7 +165,7 @@ try:
             f(selected_chapters)
             window.destroy()
             sleep(1)
-            generate_excel_file_of_problems()
+            generate_excel_file_of_problems(selected_chapters)
 
         def f(chapters):
             # Input chapters
@@ -196,7 +196,7 @@ try:
 
         window.mainloop()
 
-    def generate_excel_file_of_problems():
+    def generate_excel_file_of_problems(selected_chapters):
         # 存儲所有頁面的資料
         data = []
         page_obj = driver.find_elements(By.CLASS_NAME, 'semi-page-item')
@@ -235,6 +235,8 @@ try:
         # 匯出到 Excel，保存到桌面
         from pathlib import Path
         base_path = Path(r'C:\Users\User\Desktop\微積分題庫')  # 將 YourUserName 替換成你的使用者名稱
+        if len(selected_chapters) == 1:
+            base_path /= selected_chapters[0]
         from openpyxl import load_workbook, utils
         try:
             path = base_path.with_suffix('.xlsx')
