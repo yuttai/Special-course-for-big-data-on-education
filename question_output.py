@@ -235,7 +235,7 @@ try:
         # 匯出到 Excel，保存到桌面
         from pathlib import Path
         base_path = Path(r'C:\Users\User\Desktop\微積分題庫')  # 將 YourUserName 替換成你的使用者名稱
-        if len(selected_chapters) == 1:
+        if len(selected_chapters) == 1 and base_path.exists():
             base_path /= selected_chapters[0]
         from openpyxl import load_workbook, utils
         try:
