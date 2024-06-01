@@ -1,28 +1,26 @@
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
-from backoff import expo
 from logging import DEBUG, basicConfig
 from tkinter import simpledialog
 import tkinter as tk
 from tkinter import ttk
 from time import sleep
-import main
+from main import open_web, safe_click_button, function_logger, on_stale_element_reference_exception
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 basicConfig(level=DEBUG)
 driver = webdriver.Edge()
 try:
-    main.open_web(driver)
-    main.on_predicate(wait_gen=expo, predicate=lambda x: not x)
+    open_web(driver)
 
-    @main.function_logger
+    @function_logger
     def add_one_exam():
         global exam_name
         exam_name = simpledialog.askstring("exam name", "Please enter a exam name you want to add📚:")
         #exam_name = str(randint(0, 999999))
-        main.safe_click(driver, "新增考試")
+        safe_click_button(driver, "新增考試")
         sleep(2)
         driver.find_element(
             By.ID,
@@ -32,7 +30,7 @@ try:
         # -------------------------------------------------------------------------------------
         # 2023/11/12更新 已經改好了可以自動新增新的考試
         # 2023/12/02大致上沒什麼問題，在新增考試時有一個按鈕會因為網頁開啟時，不是最大畫面導致按鈕點擊不到
-        @main.function_logger
+        @function_logger
         def delete_motion(element):
             element.send_keys(Keys.CONTROL,"a")
             element.send_keys(Keys.DELETE)
@@ -60,9 +58,9 @@ try:
 
         driver.find_elements(By.CLASS_NAME, "semi-button.semi-button-primary")[-1].click()
 
-    @main.function_logger
+    @function_logger
     def create_a_window():
-        @main.function_logger
+        @function_logger
         def submit_action():
             # 獲取取輸入資料
             yes_q = entry_yesno.get()
@@ -121,16 +119,16 @@ try:
         # 這裡不使用 mainloop()，而是使用 wait_window() 等待視窗關閉
         root.wait_window()
 
-    @main.function_logger
+    @function_logger
     def check_and_close_main_window():
         global open_windows_count, root
         if open_windows_count == 0:
             root.destroy()
 
-    @main.function_logger
+    @function_logger
     def allocate_difficulty(q_type, num_questions_str):
         global next_window_x, next_window_y, open_windows_count
-        @main.function_logger
+        @function_logger
         def save_difficulty_allocation():
             try:
                 # 取得輸入的數值
@@ -196,12 +194,12 @@ try:
         save_button = tk.Button(difficulty_window, text="保存", command=save_difficulty_allocation)
         save_button.pack()
 
-    @main.function_logger
+    @function_logger
     def wait_for_element(driver, by, identifier, timeout=20):
         element = WebDriverWait(driver, timeout).until(EC.element_to_be_clickable((by, identifier)))
         return element
 
-    @main.function_logger
+    @function_logger
     def add_question_motion(q_type, difficulity, score, chapter):
         #wait_for_element(driver, By.XPATH, q_xpath[q_type]).click()
         sleep(0.5)
@@ -223,9 +221,9 @@ try:
         global button_flag
         button_flag = True
 
-    @main.function_logger
+    @function_logger
     def create_quention_chapter_ui():
-        @main.function_logger
+        @function_logger
         def create_chapter_selection_frame(parent):
             # 使用 Canvas 和 Scrollbar 創建滾動條
             canvas = tk.Canvas(parent)
@@ -272,7 +270,7 @@ try:
             scrollbar_y.pack(side="right", fill="y")
             scrollbar_x.pack(side="bottom", fill="x")
 
-        @main.function_logger
+        @function_logger
         def submit_action():
             # 收集下拉選單的選擇
             for q_type, difficulties in chapter_vars.items():
@@ -292,7 +290,7 @@ try:
 
         root.mainloop()
 
-    @main.function_logger
+    @function_logger
     def add_some_questions():
         test_name = driver.find_elements(By.CLASS_NAME, "semi-typography-link-text")
         # 找新增加的考試的物件
@@ -322,12 +320,12 @@ try:
                 break
                 # 這裡break的原因是因為只要找到新的考試那個選項，其他舊的考試不管，所以執行完就break
 
-    main.safe_click(driver, "登入")
+    safe_click_button(driver, "登入")
 
     course = simpledialog.askstring("course name", "Please enter a course📚:")
     if course == "":
         course = "Test"
-    main.on_stale_element_reference_exception(
+    on_stale_element_reference_exception(
         lambda: next(
             div
             for div in driver.find_elements(By.TAG_NAME, "div")

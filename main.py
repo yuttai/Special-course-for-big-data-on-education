@@ -38,13 +38,14 @@ on_stale_element_reference_exception = on_exception(wait_gen=expo, exception=Sta
 確保網站完全跑出來了在執行動作。
 it will try after wait some time by itself, and extend the waiting time automatically."""
 
+
 @function_logger
-def find_buttons_by_text(web_element, text):
-    return (button for button in web_element.find_elements(By.CLASS_NAME,"semi-button-content") if button.text == text)
+def find_elements_by_text(web_element, value, text):
+    return (button for button in web_element.find_elements(By.CLASS_NAME, value) if button.text == text)
 
 
 @function_logger
-def safe_click(web_element, text):
+def safe_click_element(web_element, value, text):
     """用來尋找網頁中的物件並點擊。倘若失敗則會有「智慧地」嘗試，以確保點完之後會進到下一個畫面。
     所以不可以用來點不會改變畫面的地方，不然就會進到無窮迴圈，再也出不去。
 
@@ -76,7 +77,7 @@ def safe_click(web_element, text):
     @function_logger
     def main_loop():
         try:
-            if buttons := list(find_buttons_by_text(web_element, text)):
+            if buttons := list(find_elements_by_text(web_element, value, text)):
                 buttons[0].click()
                 nonlocal before_clicked
                 before_clicked = False
@@ -88,6 +89,11 @@ def safe_click(web_element, text):
         except exceptions.WebDriverException:
             debug(exceptions.ElementClickInterceptedException)
     main_loop()
+
+
+def safe_click_button(web_element, text):
+    safe_click_element(web_element, "semi-button-content", text)
+
 
 def open_web(driver):
     while True:

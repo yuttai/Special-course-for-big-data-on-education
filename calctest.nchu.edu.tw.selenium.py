@@ -2,10 +2,11 @@
 # https://medium.com/marketingdatascience/%E5%8B%95%E6%85%8B%E7%B6%B2%E9%A0%81%E7%88%AC%E8%9F%B2%E7%AC%AC%E4%BA%8C%E9%81%93%E9%8E%96-selenium%E6%95%99%E5%AD%B8-%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8find-element-s-%E5%8F%96%E5%BE%97%E7%B6%B2%E9%A0%81%E5%85%83%E7%B4%A0-%E9%99%84python-%E7%A8%8B%E5%BC%8F%E7%A2%BC-b66920fc8cab
 from selenium.webdriver import Edge, EdgeOptions
 from selenium.webdriver.common.by import By
-from backoff import expo
+from backoff import expo, on_predicate
 from logging import DEBUG, basicConfig, debug
 from tkinter import simpledialog
-import main
+from main import open_web, function_logger, find_elements_by_text, on_stale_element_reference_exception, \
+    safe_click_element, safe_click_button
 from time import sleep
 
 basicConfig(level=DEBUG)
@@ -14,66 +15,66 @@ options.add_experimental_option("prefs", {
     "download.default_directory": r"C:\Users\Public\Documents\StudyInIUB\Computer Science\career\國立中興大學\202402-06.微積分(二)\線上測驗系統成績"})
 driver = Edge(options=options)
 try:
-    main.open_web(driver)
+    open_web(driver)
 
-    @main.on_predicate(wait_gen=expo, predicate=lambda x: not x)
-    @main.function_logger
-    def find_non_empty_elements_by_tag_name():
-        return driver.find_elements(By.TAG_NAME, "tr")
+    @on_predicate(wait_gen=expo, predicate=lambda x: not x)
+    @function_logger
+    def find_elements_by_tag_name(value):
+        return driver.find_elements(By.TAG_NAME, value)
 
-    @main.function_logger
-    def grade_one_exam(exam_name):
-        for exam_tr in find_non_empty_elements_by_tag_name():
+    @function_logger
+    def click_next(iterator):
+        return next(iterator).click()
+
+    @function_logger
+    def click_elements_by_text(web_element, value, text):
+        return click_next(find_elements_by_text(web_element, value, text))
+
+    @function_logger
+    def get_exam_tr(exam_name):
+        for exam_tr in find_elements_by_tag_name("tr"):
             debug(exam_tr)
-            if exam_name not in exam_tr.text:
-                continue
-            if not any(
-                link_text.text == exam_name
-                for link_text in exam_tr.find_elements(
-                    By.CLASS_NAME, "semi-typography-link-text"
-                )
-            ):
-                continue
-
-            @main.on_stale_element_reference_exception
-            @main.function_logger
-            def grade_one_student():
-                for answer_tr in find_non_empty_elements_by_tag_name():
-                    text = answer_tr.text
-                    debug(text)
-                    if "未批改試卷" not in text:
-                        continue
-                    main.safe_click(answer_tr, "批改答卷")
-                    main.safe_click(driver, "確認儲存評分")
-                    return True
-                return False
-
-            main.safe_click(exam_tr, "檢視答卷")
-            while grade_one_student():
-                pass
-            sleep(1)
-            next(main.find_buttons_by_text(driver, "匯出結果")).click()
-            for navigation in driver.find_elements(
-                By.CLASS_NAME, "semi-navigation-item-text"
-            ):
-                if navigation.text == "考試":
-                    navigation.click()
-                    return
-
-    main.safe_click(driver, "登入")
+            if exam_name in exam_tr.text and any(find_elements_by_text(exam_tr, "semi-typography-link-text", exam_name)):
+                # 之所以先判斷 exam_name in exam_tr.text 是因為這比 any 快很多
+                return exam_tr
+    safe_click_button(driver, "登入")
 
     course = simpledialog.askstring("course name", "Please enter a course📚:")
-    main.on_stale_element_reference_exception(
-        lambda: next(
-            div
-            for div in driver.find_elements(By.TAG_NAME, "div")
-            if course == div.text
-        ).click()
-    )()
+    on_stale_element_reference_exception(
+        lambda: click_next(div for div in find_elements_by_tag_name("div") if course == div.text))()
     while exam_name_ := simpledialog.askstring(
-        "exam name", "Please enter the exam name we need to grade..."
-    ):
-        grade_one_exam(exam_name_)
+            "exam name",
+            "Please enter the exam name we need to grade..."):
+        exam_tr_ = get_exam_tr(exam_name_)
+        if not exam_tr_:
+            continue
+
+        @on_stale_element_reference_exception
+        @function_logger
+        def grade_one_student():
+            for answer_tr in find_elements_by_tag_name("tr"):
+                text = answer_tr.text
+                debug(text)
+                if "未批改試卷" not in text:
+                    continue
+                safe_click_button(answer_tr, "批改答卷")
+                safe_click_button(driver, "確認儲存評分")
+                return True
+            return False
+
+        safe_click_button(exam_tr_, "檢視答卷")
+        while grade_one_student():
+            pass
+        sleep(1)
+        click_elements_by_text(driver, "semi-button-content", "匯出結果")
+        click_elements_by_text(driver, "semi-navigation-item-text", "考試")
+        exam_tr_ = get_exam_tr(exam_name_)
+        if not exam_tr_:
+            continue
+        safe_click_element(exam_tr_, "semi-typography-link-text", exam_name_)
+        safe_click_button(driver, "預覽試卷")
+        click_elements_by_text(driver, "semi-button-content", "列印試卷")
+        click_elements_by_text(driver, "semi-navigation-item-text", "考試")
     driver.quit()
 finally:
     # 在這裡加上driver.quit()的原因是因為如果沒加的話，當程式出錯時網頁還會存在，但是想要再次執行時，如果沒有把網頁關掉的話

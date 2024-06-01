@@ -1,20 +1,18 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from backoff import expo
 from logging import DEBUG, basicConfig
 from tkinter import simpledialog
 from time import sleep
 import pandas as pd
-import main
+from main import open_web, safe_click_button, function_logger, on_stale_element_reference_exception
 
 basicConfig(level=DEBUG)
 driver = webdriver.Edge()
 try:
-    main.open_web(driver)
-    main.on_predicate(wait_gen=expo, predicate=lambda x: not x)
-    main.safe_click(driver, "登入")
+    open_web(driver)
+    safe_click_button(driver, "登入")
 
-    @main.function_logger
+    @function_logger
     def crab_chapters_data():
         global chapter_list
         from selenium.webdriver.support.ui import WebDriverWait
@@ -22,7 +20,7 @@ try:
         from selenium.webdriver.common.by import By
         from bs4 import BeautifulSoup
         # 打開網頁並執行一些操作
-        main.safe_click(driver, "選擇章節")
+        safe_click_button(driver, "選擇章節")
         final_url = driver.current_url  # 或者等待某個特定元素加載完成
 
         # 等待直到網頁內容加載完成
@@ -258,7 +256,7 @@ try:
     course = simpledialog.askstring("course name", "Please enter a course📚:")
     if course == "":
         course = "Test"
-    main.on_stale_element_reference_exception(
+    on_stale_element_reference_exception(
         lambda: next(
             div
             for div in driver.find_elements(By.TAG_NAME, "div")
