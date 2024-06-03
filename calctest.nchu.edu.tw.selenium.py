@@ -30,6 +30,7 @@ try:
     def click_elements_by_text(web_element, value, text):
         return click_next(find_elements_by_text(web_element, value, text))
 
+    @on_stale_element_reference_exception
     @function_logger
     def get_exam_tr(exam_name):
         for exam_tr in find_elements_by_tag_name("tr"):
@@ -73,6 +74,7 @@ try:
             continue
         safe_click_element(exam_tr_, "semi-typography-link-text", exam_name_)
         safe_click_button(driver, "預覽試卷")
+        sleep(1)
         click_elements_by_text(driver, "semi-button-content", "列印試卷")
         click_elements_by_text(driver, "semi-navigation-item-text", "考試")
     driver.quit()
