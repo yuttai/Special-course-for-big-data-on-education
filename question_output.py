@@ -1,5 +1,4 @@
-from selenium import webdriver
-from selenium.webdriver.common.by import By
+from selenium.webdriver import Edge, common
 from logging import DEBUG, basicConfig
 from tkinter import simpledialog
 from time import sleep
@@ -7,34 +6,31 @@ import pandas as pd
 from main import open_web, safe_click_button, function_logger, on_stale_element_reference_exception
 
 basicConfig(level=DEBUG)
-driver = webdriver.Edge()
+driver = Edge()
 try:
     open_web(driver)
     safe_click_button(driver, "登入")
+    By = common.by.By
+    TAG_NAME = By.TAG_NAME
+    CLASS_NAME = By.CLASS_NAME
 
     @function_logger
     def crab_chapters_data():
         global chapter_list
-        from selenium.webdriver.support.ui import WebDriverWait
-        from selenium.webdriver.support import expected_conditions as EC
-        from selenium.webdriver.common.by import By
-        from bs4 import BeautifulSoup
+        from selenium.webdriver.support import expected_conditions, ui
         # 打開網頁並執行一些操作
         safe_click_button(driver, "選擇章節")
         final_url = driver.current_url  # 或者等待某個特定元素加載完成
 
         # 等待直到網頁內容加載完成
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
-
-        # 獲取網頁源代碼
-        html_source = driver.page_source
-
-        # 解析網頁內容
-        soup = BeautifulSoup(html_source, 'html.parser')
-
+        WebDriverWait = ui.WebDriverWait
+        presence_of_element_located = expected_conditions.presence_of_element_located
+        WebDriverWait(driver, 10).until(presence_of_element_located((TAG_NAME, 'body')))
         # 專注於解析第二個 table
-        def extract_chapters_from_second_table(soup):
-            tables = soup.find_all('table')
+        def extract_chapters_from_second_table(html_source):
+            from bs4 import BeautifulSoup
+            # 解析網頁內容
+            tables = BeautifulSoup(html_source, 'html.parser').find_all('table')
             if len(tables) < 2:
                 return []  # 如果沒有足夠的表格，返回空列表
 
@@ -50,26 +46,23 @@ try:
         
         def extract_all_chapters():
             chapters = []
-            # 定位到第三個 ul 元素
-            pagination_ul = driver.find_elements(By.CSS_SELECTOR, 'ul')[2]
-            page_numbers = pagination_ul.find_elements(By.TAG_NAME, 'li')[1:6]
-
-            for i in range(len(page_numbers)):
-                # 點擊頁碼
-                page_numbers[i].click()
-                
-                # 等待頁面加載
-                WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
-                
-                # 提取當前頁面的章節資料
-                soup = BeautifulSoup(driver.page_source, 'html.parser')
-                chapters.extend(extract_chapters_from_second_table(soup))
-
-                # 重新定位到第三個 ul 元素並更新頁碼元素列表
-                pagination_ul = driver.find_elements(By.CSS_SELECTOR, 'ul')[2]
-                page_numbers = pagination_ul.find_elements(By.TAG_NAME, 'li')[1:6]
-
-
+            CSS_SELECTOR = By.CSS_SELECTOR
+            from itertools import count
+            for i in count(1):
+                # 定位到 semi-portal 裡的 ul 元素
+                page_numbers = driver.find_elements(CLASS_NAME, 'semi-portal')[0].find_elements(CSS_SELECTOR, 'ul')[0].find_elements(TAG_NAME, 'li')
+                for page_number in page_numbers:  # find_elements 如果在 in 裡面，好像找下個 page_number 時會再打一次？
+                    if page_number.text != str(i):
+                        continue
+                    # 點擊頁碼
+                    page_number.click()
+                    # 等待頁面加載
+                    WebDriverWait(driver, 10).until(presence_of_element_located((TAG_NAME, 'body')))
+                    # 提取當前頁面的章節資料
+                    chapters.extend(extract_chapters_from_second_table(driver.page_source))
+                    break
+                else:
+                    break
             return chapters
         
         chapter_list = extract_all_chapters()
@@ -167,18 +160,18 @@ try:
 
         def f(chapters):
             # Input chapters
-            input_box = driver.find_element(By.XPATH, '//*[@id="semi-modal-body"]/div/div[1]/div/input')
+            XPATH = By.XPATH
+            input_box = driver.find_element(XPATH, '//*[@id="semi-modal-body"]/div/div[1]/div/input')
             input_box.click()
             def click_all_chpters(chapter):
                 input_box.send_keys(chapter)
                 sleep(0.5)
-                driver.find_element(By.XPATH, '//*[@id="semi-modal-body"]/div/div[2]/div/div/div/div[1]/div/table/tbody/tr[1]/td[1]/span/span/span/span').click()
+                driver.find_element(XPATH, '//*[@id="semi-modal-body"]/div/div[2]/div/div/div/div[1]/div/table/tbody/tr[1]/td[1]/span/span/span/span').click()
                 input_box.click()
                 input_box.clear()
             for chapter in chapters:
                 click_all_chpters(chapter[:5])
-            driver.find_element(By.XPATH, '//*[@id="dialog-0"]/div/div[3]/div/button[2]/span').click()
-
+            driver.find_element(XPATH, '//*[@id="dialog-0"]/div/div[3]/div/button[2]/span').click()
         window = tk.Tk()
         window.title("主視窗")
         window.geometry("550x450")
@@ -197,19 +190,14 @@ try:
     def generate_excel_file_of_problems(selected_chapters):
         # 存儲所有頁面的資料
         data = []
-        page_obj = driver.find_elements(By.CLASS_NAME, 'semi-page-item')
-        prob_number = page_obj[-2].text
+        prob_number = driver.find_elements(CLASS_NAME, 'semi-page-item')[-2].text
         for i in range(int(prob_number)):
-            # 抓取當前頁面的表格資料
-            table = driver.find_elements(By.TAG_NAME, 'table')[0]  # 調整為實際的選擇器
-            rows = table.find_elements(By.TAG_NAME, 'tr')[1:]  # 跳過表頭
-            
+            # 抓取當前頁面的表格資料，調整為實際的選擇器並跳過表頭
+            rows = driver.find_elements(TAG_NAME, 'table')[0].find_elements(TAG_NAME, 'tr')[1:]            
             for row in rows:
-                cols = row.find_elements(By.TAG_NAME, 'td')  # 找到每一列的數據
+                cols = row.find_elements(TAG_NAME, 'td')  # 找到每一列的數據
                 data.append([col.text for col in cols])  # 將數據加到列表中
-            
-            next_button = driver.find_element(By.CLASS_NAME, 'semi-page-item.semi-page-next')  # 調整為實際的下一頁按鈕選擇器
-            next_button.click()
+            driver.find_element(CLASS_NAME, 'semi-page-item.semi-page-next').click()  # 調整為實際的下一頁按鈕選擇器
             sleep(1)  # 等待頁面加載
 
         
@@ -232,7 +220,7 @@ try:
 
         # 匯出到 Excel，保存到桌面
         from pathlib import Path
-        base_path = Path(r'C:\Users\User\Desktop\微積分題庫')  # 將 YourUserName 替換成你的使用者名稱
+        base_path = Path(r'C:\Users\Public\Documents\StudyInIUB\Computer Science\career\國立中興大學\\線上測驗系統題庫')  # 將 YourUserName 替換成你的使用者名稱
         if len(selected_chapters) == 1 and base_path.exists():
             base_path /= selected_chapters[0]
         from openpyxl import load_workbook, utils
@@ -256,15 +244,13 @@ try:
     course = simpledialog.askstring("course name", "Please enter a course📚:")
     if course == "":
         course = "Test"
-    on_stale_element_reference_exception(
-        lambda: next(
-            div
-            for div in driver.find_elements(By.TAG_NAME, "div")
-            if course == div.text
-        ).click()
-    )()
+    TAG_named_div = driver.find_elements(TAG_NAME, "div")
+    on_stale_element_reference_exception(lambda: next(
+        div 
+        for div in TAG_named_div   # find_elements 如果在 in 裡面，好像找下個 div 時會再打一次？
+        if course == div.text).click())()
     sleep(1)
-    driver.find_elements(By.CLASS_NAME, "semi-navigation-item-text")[1].click()
+    driver.find_elements(CLASS_NAME, "semi-navigation-item-text")[1].click()
     chapter_list = []
     crab_chapters_data()
     ui()
