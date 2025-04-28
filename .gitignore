@@ -1,1 +1,4 @@
 msedgedriver.exe
+.idea
+.vscode
+__pycache__

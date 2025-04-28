@@ -1,7 +1,6 @@
-from selenium import common
-from selenium.webdriver.common.by import By
+from selenium import common, webdriver
 from typing import Callable
-from logging import debug
+from logging import DEBUG, basicConfig, debug
 from backoff import expo, on_exception, on_predicate
 
 
@@ -95,7 +94,15 @@ def safe_click_button(web_element, text):
     safe_click_element(web_element, "semi-button-content", text)
 
 
-def open_web(driver):
+By = webdriver.common.by.By
+@on_predicate(wait_gen=expo, predicate=lambda x: not x)
+@function_logger
+def find_elements_by_tag_name(driver, value):
+    return driver.find_elements(By.TAG_NAME, value)
+
+def open_web(options = webdriver.EdgeOptions()):
+    basicConfig(level=DEBUG)
+    driver = webdriver.Edge(options=options)
     while True:
         driver.get("http://calctest.nchu.edu.tw/")
         driver.find_element(By.ID, "email").send_keys("yuttai@nchu.edu.tw")
@@ -111,4 +118,14 @@ def open_web(driver):
                 exit()
             case 11:  # IDCONTINUE
                 break
-    
+    safe_click_button(driver, "登入")
+    from tkinter.simpledialog import askstring
+    while course := askstring("course name", "Please enter a course📚:"):
+        for div in find_elements_by_tag_name(driver, "div"):
+            if course == div.text:
+                break
+        else:
+            continue
+        on_stale_element_reference_exception(lambda: div.click())()
+        break
+    return driver

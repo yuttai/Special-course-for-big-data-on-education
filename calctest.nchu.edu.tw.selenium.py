@@ -1,27 +1,17 @@
 # https://medium.com/marketingdatascience/selenium%E6%95%99%E5%AD%B8-%E4%B8%80-%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8webdriver-send-keys-988816ce9bed
 # https://medium.com/marketingdatascience/%E5%8B%95%E6%85%8B%E7%B6%B2%E9%A0%81%E7%88%AC%E8%9F%B2%E7%AC%AC%E4%BA%8C%E9%81%93%E9%8E%96-selenium%E6%95%99%E5%AD%B8-%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8find-element-s-%E5%8F%96%E5%BE%97%E7%B6%B2%E9%A0%81%E5%85%83%E7%B4%A0-%E9%99%84python-%E7%A8%8B%E5%BC%8F%E7%A2%BC-b66920fc8cab
-from selenium.webdriver import Edge, EdgeOptions
-from selenium.webdriver.common.by import By
-from backoff import expo, on_predicate
-from logging import DEBUG, basicConfig, debug
+from selenium.webdriver import EdgeOptions
+from logging import debug
 from tkinter import simpledialog
 from main import open_web, function_logger, find_elements_by_text, on_stale_element_reference_exception, \
-    safe_click_element, safe_click_button
+    safe_click_element, safe_click_button, find_elements_by_tag_name
 from time import sleep
 
-basicConfig(level=DEBUG)
 options = EdgeOptions()
 options.add_experimental_option("prefs", {
-    "download.default_directory": r"C:\Users\Public\Documents\StudyInIUB\Computer Science\career\國立中興大學\202402-06.微積分(二)\線上測驗系統成績"})
-driver = Edge(options=options)
+    "download.default_directory": r"C:\Users\Public\Documents\StudyInIUB\Computer Science\career\國立中興大學\\線上測驗系統成績"})
+driver = open_web(options=options)
 try:
-    open_web(driver)
-
-    @on_predicate(wait_gen=expo, predicate=lambda x: not x)
-    @function_logger
-    def find_elements_by_tag_name(value):
-        return driver.find_elements(By.TAG_NAME, value)
-
     @function_logger
     def click_next(iterator):
         return next(iterator).click()
@@ -33,16 +23,11 @@ try:
     @on_stale_element_reference_exception
     @function_logger
     def get_exam_tr(exam_name):
-        for exam_tr in find_elements_by_tag_name("tr"):
+        for exam_tr in find_elements_by_tag_name(driver, "tr"):
             debug(exam_tr)
             if exam_name in exam_tr.text and any(find_elements_by_text(exam_tr, "semi-typography-link-text", exam_name)):
                 # 之所以先判斷 exam_name in exam_tr.text 是因為這比 any 快很多
                 return exam_tr
-    safe_click_button(driver, "登入")
-
-    course = simpledialog.askstring("course name", "Please enter a course📚:")
-    on_stale_element_reference_exception(
-        lambda: click_next(div for div in find_elements_by_tag_name("div") if course == div.text))()
     while exam_name_ := simpledialog.askstring(
             "exam name",
             "Please enter the exam name we need to grade..."):
@@ -53,7 +38,7 @@ try:
         @on_stale_element_reference_exception
         @function_logger
         def grade_one_student():
-            for answer_tr in find_elements_by_tag_name("tr"):
+            for answer_tr in find_elements_by_tag_name(driver, "tr"):
                 text = answer_tr.text
                 debug(text)
                 if "未批改試卷" not in text:

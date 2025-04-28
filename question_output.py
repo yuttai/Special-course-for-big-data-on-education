@@ -1,16 +1,9 @@
-from selenium.webdriver import Edge, common
-from logging import DEBUG, basicConfig
-from tkinter import simpledialog
+from selenium.webdriver.common.by import By
 from time import sleep
 import pandas as pd
-from main import open_web, safe_click_button, function_logger, on_stale_element_reference_exception
-
-basicConfig(level=DEBUG)
-driver = Edge()
+from main import open_web, safe_click_button, function_logger
 try:
-    open_web(driver)
-    safe_click_button(driver, "登入")
-    By = common.by.By
+    driver = open_web()
     TAG_NAME = By.TAG_NAME
     CLASS_NAME = By.CLASS_NAME
 
@@ -20,8 +13,6 @@ try:
         from selenium.webdriver.support import expected_conditions, ui
         # 打開網頁並執行一些操作
         safe_click_button(driver, "選擇章節")
-        final_url = driver.current_url  # 或者等待某個特定元素加載完成
-
         # 等待直到網頁內容加載完成
         WebDriverWait = ui.WebDriverWait
         presence_of_element_located = expected_conditions.presence_of_element_located
@@ -241,14 +232,6 @@ try:
             wb.save(path)
         except utils.exceptions.IllegalCharacterError as e:
             df.to_csv(base_path.with_suffix('.csv'), index=False)
-    course = simpledialog.askstring("course name", "Please enter a course📚:")
-    if course == "":
-        course = "Test"
-    TAG_named_div = driver.find_elements(TAG_NAME, "div")
-    on_stale_element_reference_exception(lambda: next(
-        div 
-        for div in TAG_named_div   # find_elements 如果在 in 裡面，好像找下個 div 時會再打一次？
-        if course == div.text).click())()
     sleep(1)
     driver.find_elements(CLASS_NAME, "semi-navigation-item-text")[1].click()
     chapter_list = []
