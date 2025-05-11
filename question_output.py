@@ -132,8 +132,8 @@ def submit_selections():
 
         # 調整每個欄位的寬度
         for column_cells in ws.columns:
-            length = max(len(str(cell.value)) for cell in column_cells)
-            ws.column_dimensions[utils.get_column_letter(column_cells[0].column)].width = length
+            ws.column_dimensions[utils.get_column_letter(column_cells[0].column)].width = max(
+                min(127, 2 * len(str(cell.value))) for cell in column_cells)
 
         # 保存對 Excel 檔案所做的更改
         wb.save(path)
