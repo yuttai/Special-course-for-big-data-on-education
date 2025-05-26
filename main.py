@@ -1,5 +1,5 @@
 from selenium import common, webdriver
-from typing import Callable
+from typing import Callable, Optional
 from logging import DEBUG, basicConfig, debug
 from backoff import expo, on_exception, on_predicate
 
@@ -129,3 +129,9 @@ def open_web(options = webdriver.EdgeOptions()):
         on_stale_element_reference_exception(lambda: div.click())()
         break
     return driver
+
+
+def wait_until_presence_of(driver, by=By.ID, value: Optional[str] = None) -> webdriver.remote.webdriver.WebElement:
+    """等待直到 by 加載完成"""
+    from selenium.webdriver.support import expected_conditions, ui
+    return ui.WebDriverWait(driver, 10).until(expected_conditions.presence_of_element_located((by, value)))

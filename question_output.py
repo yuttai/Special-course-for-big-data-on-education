@@ -1,19 +1,15 @@
 from selenium.webdriver.common.by import By
 from time import sleep
-from main import open_web, safe_click_button
+from main import open_web, safe_click_button, wait_until_presence_of
 driver = open_web()
 TAG_NAME = By.TAG_NAME
 CLASS_NAME = By.CLASS_NAME
-sleep(1)
+wait_until_presence_of(driver, CLASS_NAME, "semi-navigation-item-text")
 driver.find_elements(CLASS_NAME, "semi-navigation-item-text")[1].click()
 chapter_list = {}
-from selenium.webdriver.support import expected_conditions, ui
 # 打開網頁並執行一些操作
 safe_click_button(driver, "選擇章節")
-# 等待直到網頁內容加載完成
-WebDriverWait = ui.WebDriverWait
-presence_of_element_located = expected_conditions.presence_of_element_located
-WebDriverWait(driver, 10).until(presence_of_element_located((TAG_NAME, 'body')))
+wait_until_presence_of(driver, TAG_NAME, 'body')
 CSS_SELECTOR = By.CSS_SELECTOR
 from itertools import count
 from bs4 import BeautifulSoup
@@ -25,8 +21,7 @@ for i in count(1):
             continue
         # 點擊頁碼
         page_number.click()
-        # 等待頁面加載
-        WebDriverWait(driver, 10).until(presence_of_element_located((TAG_NAME, 'body')))
+        wait_until_presence_of(driver, TAG_NAME, 'body')
         # 提取當前頁面的章節資料
         # 解析網頁內容
         tables = BeautifulSoup(driver.page_source, 'html.parser').find_all('table')
