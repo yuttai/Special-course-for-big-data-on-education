@@ -90,12 +90,29 @@ def submit_selections():
         for row in rows:
             cols = row.find_elements(TAG_NAME, 'td')  # 找到每一列的數據
             data.append([col.text for col in cols])  # 將數據加到列表中
+
+            edit_button = row.find_element(XPATH, './/td[@aria-colindex="8"]//span[text()="修改"]/ancestor::button')
+
+            try:
+                driver.execute_script("arguments[0].scrollIntoView(true);", edit_button)
+                edit_button.click()
+            except Exception as e:
+                print(f"跳過一個按鈕，因為點擊時發生錯誤：{e}")
+                continue
+
+            question = driver.find_element(XPATH, '//*[@id="title-editor"]/div/div[2]/div/div[6]/div[1]/div/div/div/div[5]/pre/span')
+            data.append(question.text)
+
+            cancel_button = driver.find_element(XPATH, "//span[@class='semi-button-content' and @x-semi-prop='cancelText']")
+            cancel_button.click()
+            sleep(1)
+
         driver.find_element(CLASS_NAME, 'semi-page-item.semi-page-next').click()  # 調整為實際的下一頁按鈕選擇器
         sleep(1)  # 等待頁面加載
 
     # 將資料轉換成 DataFrame
     from pandas import DataFrame, to_numeric
-    df = DataFrame(data, columns=['題目', '類型', '章節', '難度', '建立者' , '練習次數', '答對次數', "功能"])  # 調整列名為實際情況
+    df = DataFrame(data, columns=['題目', '類型', '章節', '難度', '建立者' , '練習次數', '答對次數', "功能","新題目"])  # 調整列名為實際情況
 
     # 計算答對比例
     df['練習次數'] = to_numeric(df['練習次數'], errors='coerce').fillna(0)
