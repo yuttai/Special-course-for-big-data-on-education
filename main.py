@@ -94,7 +94,7 @@ def safe_click_button(web_element, text):
     safe_click_element(web_element, "semi-button-content", text)
 
 
-By = webdriver.common.by.By
+By = webdriver.common.by.By # type: ignore
 @on_predicate(wait_gen=expo, predicate=lambda x: not x)
 @function_logger
 def find_elements_by_tag_name(driver, value):
@@ -131,7 +131,7 @@ def open_web(options = webdriver.EdgeOptions()):
     return driver
 
 
-def wait_until_presence_of(driver, by=By.ID, value: Optional[str] = None) -> webdriver.remote.webdriver.WebElement:
+def wait_until_presence_of(driver, by, value: str) -> webdriver.remote.webdriver.WebElement: # type: ignore
     """等待直到 by 加載完成"""
     from selenium.webdriver.support import expected_conditions, ui
     return ui.WebDriverWait(driver, 10).until(expected_conditions.presence_of_element_located((by, value)))

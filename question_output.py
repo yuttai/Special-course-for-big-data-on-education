@@ -66,7 +66,7 @@ for i in range(len(pages)):
 page_buttons_frame.pack(side=TOP)
 # 底部按鈕
 bottom_buttons_frame = Frame(selection_window)
-def submit_selections():
+def submit_selections(download_choices):
     """確認按鈕"""
     selected_chapters = [chapter for chapter, var in chapter_vars.items() if var.get() == "1"]
     # Input chapters
@@ -83,14 +83,14 @@ def submit_selections():
     sleep(1)
     # 存儲所有頁面的資料
     data = []
-    prob_number = driver.find_elements(CLASS_NAME, 'semi-page-item')[-2].text
-    for i in range(int(prob_number)):
+    while True:
         # 抓取當前頁面的表格資料，調整為實際的選擇器並跳過表頭。有需要可改用 BeautifulSoup 加速！
         rows = driver.find_elements(TAG_NAME, 'table')[0].find_elements(TAG_NAME, 'tr')[1:]            
         for row in rows:
             cols = row.find_elements(TAG_NAME, 'td')  # 找到每一列的數據
             data.append([col.text for col in cols])  # 將數據加到列表中
-
+            if not download_choices:
+                continue
             edit_button = row.find_element(XPATH, './/td[@aria-colindex="8"]//span[text()="修改"]/ancestor::button')
 
             try:
@@ -106,14 +106,17 @@ def submit_selections():
             cancel_button = driver.find_element(XPATH, "//span[@class='semi-button-content' and @x-semi-prop='cancelText']")
             cancel_button.click()
             sleep(1)
-
-        driver.find_element(CLASS_NAME, 'semi-page-item.semi-page-next').click()  # 調整為實際的下一頁按鈕選擇器
-        sleep(1)  # 等待頁面加載
-
+        next_button = driver.find_element(CLASS_NAME, 'semi-page-item.semi-page-next')  # 調整為實際的下一頁按鈕選擇器
+        if next_button.get_attribute("aria-disabled") == "false":
+            next_button.click()
+            sleep(1)  # 等待頁面加載；如果真的要捉，需要捉頁碼是否改變，有點麻煩... 出錯時再改就好。
+        else:
+            break
     # 將資料轉換成 DataFrame
     from pandas import DataFrame, to_numeric
-    df = DataFrame(data, columns=['題目', '類型', '章節', '難度', '建立者' , '練習次數', '答對次數', "功能","新題目"])  # 調整列名為實際情況
-
+    df = DataFrame(
+        data, 
+        columns=['題目', '類型', '章節', '難度', '建立者' , '練習次數', '答對次數', "功能"] + (["完整題目"] if download_choices else []))  # 調整列名為實際情況
     # 計算答對比例
     df['練習次數'] = to_numeric(df['練習次數'], errors='coerce').fillna(0)
     df['答對次數'] = to_numeric(df['答對次數'], errors='coerce').fillna(0)
@@ -141,18 +144,20 @@ def submit_selections():
         # 然後，使用 openpyxl 加載剛剛保存的 Excel 檔案
         wb = load_workbook(path)
         ws = wb.active
-
-        # 調整每個欄位的寬度
-        for column_cells in ws.columns:
-            ws.column_dimensions[utils.get_column_letter(column_cells[0].column)].width = max(
-                min(127, 2 * len(str(cell.value))) for cell in column_cells)
-
+        if ws is not None:
+            # 調整每個欄位的寬度
+            for column_cells in ws.columns:
+                column = column_cells[0].column
+                if column is not None:
+                    ws.column_dimensions[utils.get_column_letter(column)].width = max(
+                        min(127, 2 * len(str(cell.value))) for cell in column_cells)
         # 保存對 Excel 檔案所做的更改
         wb.save(path)
-    except utils.exceptions.IllegalCharacterError as e:
+    except utils.exceptions.IllegalCharacterError as e: # type: ignore
         df.to_csv(base_path.with_suffix('.csv'), index=False)
     selection_window.destroy()
-Button(bottom_buttons_frame, text="確認", command=submit_selections).pack(side=LEFT)
+Button(bottom_buttons_frame, text="下載題目", command=lambda: submit_selections(False)).pack(side=LEFT)
+Button(bottom_buttons_frame, text="下載題目及選項", command=lambda: submit_selections(True)).pack(side=LEFT)
 Button(bottom_buttons_frame, text="取消", command=selection_window.destroy).pack(side=LEFT)
 bottom_buttons_frame.pack(side=BOTTOM)
 show_page(0)  # 顯示第一頁
