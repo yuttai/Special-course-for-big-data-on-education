@@ -135,3 +135,8 @@ def wait_until_presence_of(driver, by, value: str) -> webdriver.remote.webdriver
     """等待直到 by 加載完成"""
     from selenium.webdriver.support import expected_conditions, ui
     return ui.WebDriverWait(driver, 10).until(expected_conditions.presence_of_element_located((by, value)))
+
+
+@function_logger
+def click_elements_by_text(web_element, value, text):
+    return next(find_elements_by_text(web_element, value, text)).click()

@@ -1,6 +1,6 @@
 from selenium.webdriver.common.by import By
 from time import sleep
-from main import open_web, safe_click_button, wait_until_presence_of
+from main import open_web, safe_click_button, wait_until_presence_of, click_elements_by_text
 driver = open_web()
 TAG_NAME = By.TAG_NAME
 CLASS_NAME = By.CLASS_NAME
@@ -88,24 +88,15 @@ def submit_selections(download_choices):
         rows = driver.find_elements(TAG_NAME, 'table')[0].find_elements(TAG_NAME, 'tr')[1:]            
         for row in rows:
             cols = row.find_elements(TAG_NAME, 'td')  # 找到每一列的數據
-            data.append([col.text for col in cols])  # 將數據加到列表中
-            if not download_choices:
-                continue
-            edit_button = row.find_element(XPATH, './/td[@aria-colindex="8"]//span[text()="修改"]/ancestor::button')
-
-            try:
-                driver.execute_script("arguments[0].scrollIntoView(true);", edit_button)
-                edit_button.click()
-            except Exception as e:
-                print(f"跳過一個按鈕，因為點擊時發生錯誤：{e}")
-                continue
-
-            question = driver.find_element(XPATH, '//*[@id="title-editor"]/div/div[2]/div/div[6]/div[1]/div/div/div/div[5]/pre/span')
-            data.append(question.text)
-
-            cancel_button = driver.find_element(XPATH, "//span[@class='semi-button-content' and @x-semi-prop='cancelText']")
-            cancel_button.click()
-            sleep(1)
+            row_list = [col.text for col in cols]
+            if download_choices:
+                click_elements_by_text(row, "semi-button-content", "修改")
+                wait_until_presence_of(driver, By.ID, 'title-editor')
+                page_source = BeautifulSoup(driver.page_source, 'html.parser')
+                title_editor = page_source.find(id='title-editor')
+                row_list.append(title_editor.find_all('pre')[1].text if title_editor else "") # type: ignore
+                safe_click_button(driver, "取消")
+            data.append(row_list)  # 將數據加到列表中
         next_button = driver.find_element(CLASS_NAME, 'semi-page-item.semi-page-next')  # 調整為實際的下一頁按鈕選擇器
         if next_button.get_attribute("aria-disabled") == "false":
             next_button.click()

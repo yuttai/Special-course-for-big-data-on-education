@@ -4,7 +4,7 @@ from selenium.webdriver import EdgeOptions
 from logging import debug
 from tkinter import simpledialog
 from main import open_web, function_logger, find_elements_by_text, on_stale_element_reference_exception, \
-    safe_click_element, safe_click_button, find_elements_by_tag_name
+    safe_click_element, safe_click_button, find_elements_by_tag_name, click_elements_by_text
 from time import sleep
 
 options = EdgeOptions()
@@ -12,14 +12,6 @@ options.add_experimental_option("prefs", {
     "download.default_directory": r"C:\Users\Public\Documents\StudyInIUB\Computer Science\career\國立中興大學\\線上測驗系統成績"})
 driver = open_web(options=options)
 try:
-    @function_logger
-    def click_next(iterator):
-        return next(iterator).click()
-
-    @function_logger
-    def click_elements_by_text(web_element, value, text):
-        return click_next(find_elements_by_text(web_element, value, text))
-
     @on_stale_element_reference_exception
     @function_logger
     def get_exam_tr(exam_name):
