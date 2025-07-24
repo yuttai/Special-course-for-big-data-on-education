@@ -1,4 +1,5 @@
-from selenium.webdriver.common.by import By
+from selenium import common, webdriver
+By = webdriver.common.by.By # type: ignore
 from time import sleep
 from main import open_web, safe_click_button, wait_until_presence_of, click_elements_by_text
 driver = open_web()
@@ -84,20 +85,45 @@ def submit_selections(download_choices):
     # 存儲所有頁面的資料
     columns = []
     data = []
+    def pre_text_of(editor: Tag):
+        return editor.find_all('pre')[1].text
+    from json import dumps
+    def isTag(tag) -> bool:
+        return isinstance(tag, Tag)
+    from backoff import expo, on_exception
     while True:
         texts = []
         for table_row in BeautifulSoup(driver.page_source, 'html.parser').find_all('tr'):
             if col_text := [col.text for col in table_row.find_all('td')]:
                 texts.append(col_text)
             elif not columns:
-                columns = [col.text for col in table_row.find_all('th')] + (["完整題目"] if download_choices else [])
+                columns = [col.text for col in table_row.find_all('th')] + (["選項", "正確答案", "題解"] if download_choices else [])
         if download_choices:
             for i in range(len(rows := driver.find_elements(TAG_NAME, 'tr')[1:])):
-                click_elements_by_text(rows[i], "semi-button-content", "修改")
+                on_exception(wait_gen=expo, exception=common.exceptions.ElementClickInterceptedException)(
+                    lambda: click_elements_by_text(rows[i], "semi-button-content", "修改"))()
                 wait_until_presence_of(driver, By.ID, 'title-editor')
                 page_source = BeautifulSoup(driver.page_source, 'html.parser')
-                title_editor = page_source.find(id='title-editor')
-                texts[i].append(title_editor.find_all('pre')[1].text if title_editor else "") # type: ignore
+                if isTag(semi_modal_body := page_source.find(id="semi-modal-body")):
+                    page_source = semi_modal_body
+                text_i = texts[i]
+                find_source = page_source.find # type: ignore
+                text_i[0] = pre_text_of(tag) if isTag(tag := find_source(id="title-editor")) else "" # type: ignore
+                text_append = text_i.append
+                text_append(dumps([pre_text_of(option_editor) for option_editor in page_source.select('div[id^=option-editor-]')])) # type: ignore
+                if isTag(modelAnswer := find_source(attrs={'x-field-id': 'modelAnswer'})): # type: ignore
+                    match text_i[1]:
+                        case "單選題":
+                            text_append(checked_answer.text if isTag(checked_answer := modelAnswer.find(class_='semi-radio-checked')) else "") # type: ignore
+                        case "是非題":
+                            text_append(isTag(modelAnswer.find(class_='semi-switch-checked'))) # type: ignore
+                        case "複選題":
+                            text_append(dumps([checkbox.text for checkbox in modelAnswer.find_all(class_='semi-checkbox-checked')])) # type: ignore
+                        case _:
+                            text_append("")
+                else:
+                    text_append("")
+                text_append(pre_text_of(tag) if isTag(tag := find_source(id="note-editor")) else "") # type: ignore
                 safe_click_button(driver, "取消")
         data += texts  # 將數據加到列表中
         next_button = driver.find_element(CLASS_NAME, 'semi-page-item.semi-page-next')  # 調整為實際的下一頁按鈕選擇器
