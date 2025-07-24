@@ -12,7 +12,7 @@ safe_click_button(driver, "選擇章節")
 wait_until_presence_of(driver, TAG_NAME, 'body')
 CSS_SELECTOR = By.CSS_SELECTOR
 from itertools import count
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 for i in count(1):
     # 定位到 semi-portal 裡的 ul 元素
     page_numbers = driver.find_elements(CLASS_NAME, 'semi-portal')[0].find_elements(CSS_SELECTOR, 'ul')[0].find_elements(TAG_NAME, 'li')
@@ -82,21 +82,24 @@ def submit_selections(download_choices):
     driver.find_element(XPATH, '//*[@id="dialog-0"]/div/div[3]/div/button[2]/span').click()
     sleep(1)
     # 存儲所有頁面的資料
+    columns = []
     data = []
     while True:
-        # 抓取當前頁面的表格資料，調整為實際的選擇器並跳過表頭。有需要可改用 BeautifulSoup 加速！
-        rows = driver.find_elements(TAG_NAME, 'table')[0].find_elements(TAG_NAME, 'tr')[1:]            
-        for row in rows:
-            cols = row.find_elements(TAG_NAME, 'td')  # 找到每一列的數據
-            row_list = [col.text for col in cols]
-            if download_choices:
-                click_elements_by_text(row, "semi-button-content", "修改")
+        texts = []
+        for table_row in BeautifulSoup(driver.page_source, 'html.parser').find_all('tr'):
+            if col_text := [col.text for col in table_row.find_all('td')]:
+                texts.append(col_text)
+            elif not columns:
+                columns = [col.text for col in table_row.find_all('th')] + (["完整題目"] if download_choices else [])
+        if download_choices:
+            for i in range(len(rows := driver.find_elements(TAG_NAME, 'tr')[1:])):
+                click_elements_by_text(rows[i], "semi-button-content", "修改")
                 wait_until_presence_of(driver, By.ID, 'title-editor')
                 page_source = BeautifulSoup(driver.page_source, 'html.parser')
                 title_editor = page_source.find(id='title-editor')
-                row_list.append(title_editor.find_all('pre')[1].text if title_editor else "") # type: ignore
+                texts[i].append(title_editor.find_all('pre')[1].text if title_editor else "") # type: ignore
                 safe_click_button(driver, "取消")
-            data.append(row_list)  # 將數據加到列表中
+        data += texts  # 將數據加到列表中
         next_button = driver.find_element(CLASS_NAME, 'semi-page-item.semi-page-next')  # 調整為實際的下一頁按鈕選擇器
         if next_button.get_attribute("aria-disabled") == "false":
             next_button.click()
@@ -105,9 +108,7 @@ def submit_selections(download_choices):
             break
     # 將資料轉換成 DataFrame
     from pandas import DataFrame, to_numeric
-    df = DataFrame(
-        data, 
-        columns=['題目', '類型', '章節', '難度', '建立者' , '練習次數', '答對次數', "功能"] + (["完整題目"] if download_choices else []))  # 調整列名為實際情況
+    df = DataFrame(data, columns=columns)  # 調整列名為實際情況
     # 計算答對比例
     df['練習次數'] = to_numeric(df['練習次數'], errors='coerce').fillna(0)
     df['答對次數'] = to_numeric(df['答對次數'], errors='coerce').fillna(0)
