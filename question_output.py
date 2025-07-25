@@ -69,12 +69,12 @@ page_buttons_frame.pack(side=TOP)
 bottom_buttons_frame = Frame(selection_window)
 def submit_selections(download_choices):
     """確認按鈕"""
-    selected_chapters = [chapter for chapter, var in chapter_vars.items() if var.get() == "1"]
+    selected_chapters = {chapter: [] for chapter, var in chapter_vars.items() if var.get() == "1"}
     # Input chapters
     XPATH = By.XPATH
     input_box = driver.find_element(XPATH, '//*[@id="semi-modal-body"]/div/div[1]/div/input')
     input_box.click()
-    for chapter in selected_chapters:
+    for chapter in selected_chapters.keys():
         input_box.send_keys(chapter)
         sleep(0.5)
         driver.find_element(XPATH, '//*[@id="semi-modal-body"]/div/div[2]/div/div/div/div[1]/div/table/tbody/tr[1]/td[1]/span/span/span/span').click()
@@ -84,13 +84,13 @@ def submit_selections(download_choices):
     sleep(1)
     # 存儲所有頁面的資料
     columns = []
-    data = []
     def pre_text_of(editor: Tag):
         return editor.find_all('pre')[1].text
     from json import dumps
     def isTag(tag) -> bool:
         return isinstance(tag, Tag)
     from backoff import expo, on_exception
+    on_ElementClickInterceptedException = on_exception(wait_gen=expo, exception=common.exceptions.ElementClickInterceptedException)
     while True:
         texts = []
         for table_row in BeautifulSoup(driver.page_source, 'html.parser').find_all('tr'):
@@ -100,8 +100,7 @@ def submit_selections(download_choices):
                 columns = [col.text for col in table_row.find_all('th')] + (["選項", "正確答案", "題解"] if download_choices else [])
         if download_choices:
             for i in range(len(rows := driver.find_elements(TAG_NAME, 'tr')[1:])):
-                on_exception(wait_gen=expo, exception=common.exceptions.ElementClickInterceptedException)(
-                    lambda: click_elements_by_text(rows[i], "semi-button-content", "修改"))()
+                on_ElementClickInterceptedException(lambda: click_elements_by_text(rows[i], "semi-button-content", "修改"))()
                 wait_until_presence_of(driver, By.ID, 'title-editor')
                 page_source = BeautifulSoup(driver.page_source, 'html.parser')
                 if isTag(semi_modal_body := page_source.find(id="semi-modal-body")):
@@ -124,55 +123,48 @@ def submit_selections(download_choices):
                 else:
                     text_append("")
                 text_append(pre_text_of(tag) if isTag(tag := find_source(id="note-editor")) else "") # type: ignore
+                selected_chapters[text_i[2]].append(text_i)  # 將每一行的數據添加到對應章節的列表中
                 safe_click_button(driver, "取消")
-        data += texts  # 將數據加到列表中
         next_button = driver.find_element(CLASS_NAME, 'semi-page-item.semi-page-next')  # 調整為實際的下一頁按鈕選擇器
         if next_button.get_attribute("aria-disabled") == "false":
-            next_button.click()
+            on_ElementClickInterceptedException(lambda: next_button.click())()
             sleep(1)  # 等待頁面加載；如果真的要捉，需要捉頁碼是否改變，有點麻煩... 出錯時再改就好。
         else:
             break
     # 將資料轉換成 DataFrame
     from pandas import DataFrame, to_numeric
-    df = DataFrame(data, columns=columns)  # 調整列名為實際情況
-    # 計算答對比例
-    df['練習次數'] = to_numeric(df['練習次數'], errors='coerce').fillna(0)
-    df['答對次數'] = to_numeric(df['答對次數'], errors='coerce').fillna(0)
-    df['答對比例'] = ((df['答對次數'] / df['練習次數']) * 100).round(2)  # 先計算百分比，再四捨五入到小數點後兩位
-
-    # 將數值轉換為百分比格式的字符串
-    df['答對比例'] = df['答對比例'].apply(lambda x: f'{x}%')
-
-    # 將答對比例列移動到答對次數後面
-    # 注意：如果你已經有 '答對比例' 列在 DataFrame 中，你可以透過列重排來達成，而不需要刪除再插入
-    cols = df.columns.tolist()
-    cols.insert(cols.index('答對次數') + 1, cols.pop(cols.index('答對比例')))
-    df = df[cols]
-
-    # 匯出到 Excel，保存到桌面
     from pathlib import Path
-    base_path = Path(r'C:\Users\Public\Documents\StudyInIUB\Computer Science\career\國立中興大學\\線上測驗系統題庫')
-    if len(selected_chapters) == 1 and base_path.exists():
-        base_path /= chapter_list[selected_chapters[0]]
     from openpyxl import load_workbook, utils
-    try:
-        path = base_path.with_suffix('.xlsx')
-        df.to_excel(path, index=False)
+    for chapter, data in selected_chapters.items():
+        df = DataFrame(data, columns=columns)  # 調整列名為實際情況
+        # 計算答對比例
+        df['練習次數'] = to_numeric(df['練習次數'], errors='coerce').fillna(0)
+        df['答對次數'] = to_numeric(df['答對次數'], errors='coerce').fillna(0)
+        df['答對比例'] = (df['答對次數'] / df['練習次數'] * 100).round(2).apply(lambda x: f"{x}%")  # 先計算百分比，再四捨五入到小數點後兩位並轉換為百分比格式的字符串
+        # 將答對比例列移動到答對次數後面
+        # 注意：如果你已經有 '答對比例' 列在 DataFrame 中，你可以透過列重排來達成，而不需要刪除再插入
+        cols = df.columns.tolist()
+        cols.insert(cols.index('答對次數') + 1, cols.pop(cols.index('答對比例')))
+        df = df[cols]
 
-        # 然後，使用 openpyxl 加載剛剛保存的 Excel 檔案
-        wb = load_workbook(path)
-        ws = wb.active
-        if ws is not None:
-            # 調整每個欄位的寬度
-            for column_cells in ws.columns:
-                column = column_cells[0].column
-                if column is not None:
-                    ws.column_dimensions[utils.get_column_letter(column)].width = max(
-                        min(127, 2 * len(str(cell.value))) for cell in column_cells)
-        # 保存對 Excel 檔案所做的更改
-        wb.save(path)
-    except utils.exceptions.IllegalCharacterError as e: # type: ignore
-        df.to_csv(base_path.with_suffix('.csv'), index=False)
+        # 匯出到 Excel
+        base_path = Path(r'C:\Users\Public\Documents\StudyInIUB\Computer Science\career\國立中興大學\\線上測驗系統題庫') / chapter_list[chapter]
+        try:
+            path = base_path.with_suffix('.xlsx')
+            df.to_excel(path, index=False)
+
+            # 然後，使用 openpyxl 加載剛剛保存的 Excel 檔案
+            wb = load_workbook(path)
+            if ws := wb.active:
+                # 調整每個欄位的寬度
+                for column_cells in ws.columns:
+                    if column := column_cells[0].column:
+                        ws.column_dimensions[utils.get_column_letter(column)].width = max(
+                            min(127, 2 * len(str(cell.value))) for cell in column_cells)
+            # 保存對 Excel 檔案所做的更改
+            wb.save(path)
+        except utils.exceptions.IllegalCharacterError as e: # type: ignore
+            df.to_csv(base_path.with_suffix('.csv'), index=False)
     selection_window.destroy()
 Button(bottom_buttons_frame, text="下載題目", command=lambda: submit_selections(False)).pack(side=LEFT)
 Button(bottom_buttons_frame, text="下載題目及選項", command=lambda: submit_selections(True)).pack(side=LEFT)
