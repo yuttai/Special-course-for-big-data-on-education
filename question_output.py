@@ -93,13 +93,13 @@ def submit_selections(download_choices):
     on_ElementClickInterceptedException = on_exception(wait_gen=expo, exception=common.exceptions.ElementClickInterceptedException)
     while True:
         texts = []
-        for table_row in BeautifulSoup(driver.page_source, 'html.parser').find_all('tr'):
-            if col_text := [col.text for col in table_row.find_all('td')]:
-                texts.append(col_text)
-            elif not columns:
-                columns = [col.text for col in table_row.find_all('th')] + (["選項", "正確答案", "題解"] if download_choices else [])
+        parsed_source = BeautifulSoup(driver.page_source, 'html.parser')
+        if not columns:
+            columns = [col.text for col in parsed_source.find_all('thead')[0].find_all('th')] + (["選項", "正確答案", "題解"] if download_choices else [])
+        for table_row in parsed_source.find_all('tbody')[0].find_all('tr', recursive=False):
+            texts.append([col.text for col in table_row.find_all('td', recursive=False)])
         if download_choices:
-            for i in range(len(rows := driver.find_elements(TAG_NAME, 'tr')[1:])):
+            for i in range(len(rows := driver.find_elements(TAG_NAME, 'tbody')[0].find_elements(By.XPATH, "./tr"))):
                 on_ElementClickInterceptedException(lambda: click_elements_by_text(rows[i], "semi-button-content", "修改"))()
                 wait_until_presence_of(driver, By.ID, 'title-editor')
                 page_source = BeautifulSoup(driver.page_source, 'html.parser')
